@@ -43,16 +43,26 @@
   .intro{padding:44px 0 28px;max-width:34ch;font-size:1.5rem;line-height:1.35}
 
   /* work stage */
-  .stage{background:var(--charcoal);color:var(--white);border-radius:8px;overflow:hidden}
+  .stage{background:var(--charcoal);color:var(--white);border-radius:4px;overflow:hidden}
   .tabs{display:flex;flex-wrap:wrap;background:var(--black)}
-  .tab{flex:1;min-width:120px;font:700 1.05rem var(--head);padding:16px 12px;border:0;background:none;color:var(--white);cursor:pointer;border-bottom:3px solid transparent;opacity:.7}
+  .tab{flex:1;min-width:120px;font:700 1.05rem var(--head);padding:14px 12px;border:0;background:none;color:var(--white);cursor:pointer;border-bottom:2px solid transparent;opacity:.8}
   .tab:hover{opacity:1}
   .tab[aria-selected="true"]{opacity:1;border-bottom-color:var(--green-lt)}
-  .panel{padding:14px}
-  .video{aspect-ratio:16/9;background:var(--black);border-radius:10px;overflow:hidden;display:grid;place-items:center}
-  .stage .video{border-radius:4px}
-  .video iframe,.video video{width:100%;height:100%;border:0}
-  .empty{text-align:center;color:#a9a9a3;padding:20px;font-size:1rem}
+  .panel{padding:12px}
+  .featured-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px 12px}
+  .video{position:relative;aspect-ratio:16/9;background:var(--black);border-radius:4px;overflow:hidden}
+  .video-thumb,.preview-layer,.preview-layer iframe,.video-open{position:absolute;inset:0;width:100%;height:100%}
+  .video-thumb{object-fit:cover}
+  .preview-layer{pointer-events:none}
+  .preview-layer iframe{border:0}
+  .video-open{display:grid;place-items:center;background:transparent;border:0;color:white;cursor:pointer}
+  .video-open:focus-visible{outline:3px solid var(--green-lt);outline-offset:-4px}
+  .play-icon{display:grid;place-items:center;width:48px;height:48px;padding-left:3px;border-radius:50%;background:rgba(20,21,20,.8);font-size:1.1rem}
+  .video-card.playing .play-icon{opacity:0}
+  .mute-btn{position:absolute;right:8px;bottom:8px;z-index:1;border:1px solid rgba(255,255,255,.7);border-radius:4px;background:rgba(20,21,20,.9);color:white;padding:6px 10px;font:700 .8rem var(--head);cursor:pointer}
+  .video-card h3{font:700 1rem var(--head);margin-top:8px}
+  .video-status{color:var(--white);font-size:.9rem}
+  .empty{text-align:center;color:#cfcfc6;padding:20px;font-size:1rem}
   .empty b{display:block;font:700 1.1rem var(--head);color:var(--white);margin-bottom:4px}
   .panel-foot{display:flex;justify-content:space-between;align-items:center;gap:16px;flex-wrap:wrap;margin-top:14px}
   .panel-foot h2{font:700 1.5rem var(--head)}
@@ -93,11 +103,17 @@
   .chip{font:700 .95rem var(--head);padding:9px 20px;border-radius:999px;border:2px solid var(--black);background:none;color:var(--black);cursor:pointer}
   .chip[aria-pressed="true"]{background:var(--green);border-color:var(--green);color:var(--white)}
   .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:24px;margin-top:34px}
-  .card{background:var(--charcoal);color:var(--white);border-radius:14px;overflow:hidden}
-  .card .video{border-radius:0}
-  .card .meta{padding:16px 18px}
-  .card h3{font:700 1.1rem var(--head)}
+  .card{background:var(--charcoal);color:var(--white);border-radius:4px;overflow:hidden}
+  .card .meta{padding:0 12px 12px}
   .card span{font-size:.92rem;color:#cfcfc6}
+
+  .lightbox{position:fixed;inset:0;width:100%;height:100%;max-width:none;max-height:none;margin:0;padding:24px;border:0;background:transparent;color:var(--white)}
+  .lightbox[open]{display:grid;place-items:center}
+  .lightbox::backdrop{background:rgba(0,0,0,.88)}
+  .lightbox-inner{width:min(100%,1000px)}
+  .lightbox-close{display:block;margin:0 0 8px auto;padding:6px 12px;border:1px solid var(--white);border-radius:4px;background:var(--black);color:var(--white);font:700 1rem var(--head);cursor:pointer}
+  .lightbox-video{aspect-ratio:16/9;background:var(--black)}
+  .lightbox-video iframe{display:block;width:100%;height:100%;border:0}
 
   footer{background:var(--black);color:var(--white);padding:36px 0;margin-top:0;font-size:1rem}
   footer .wrap{display:flex;justify-content:space-between;flex-wrap:wrap;gap:12px}
@@ -107,6 +123,7 @@
     .about-grid{grid-template-columns:1fr;gap:32px}
     .photo{max-width:320px}
     .panel{padding:10px}
+    .featured-grid{grid-template-columns:1fr}
   }
   @media (prefers-reduced-motion:reduce){html{scroll-behavior:auto}}
 </style>
@@ -212,11 +229,18 @@
 
 <footer><div class="wrap"><span>Michael Quinn</span><span>Novato, CA</span></div></footer>
 
+<dialog class="lightbox" id="lightbox" aria-label="Video player">
+  <div class="lightbox-inner">
+    <button class="lightbox-close" type="button" aria-label="Close video">Close &times;</button>
+    <div class="lightbox-video" id="lightbox-video"></div>
+  </div>
+</dialog>
+
 <script>
 /* ============================================================
    ADD YOUR YOUTUBE LINKS HERE
    Replace each empty src with a YouTube /embed/ URL or iframe code.
-   The FIRST video in each category is featured on the home page.
+   The first four videos in each category are featured on the home page.
    ============================================================ */
 const CATEGORIES = {
   football:{label:"Football",blurb:"Oregon Football Video: game days, practices and recruiting weekends.",
@@ -274,41 +298,206 @@ function youtubeVideoId(src){
   }
 }
 
-function videoEl(v){
-  if(!v.src) return `<div class="empty"><b>${v.title}</b>Paste a YouTube embed link or iframe code into this video's src in the CATEGORIES list in index.html.</div>`;
-  const id=youtubeVideoId(v.src);
-  if(!id) return `<div class="empty"><b>${v.title}</b>That doesn't look like a YouTube link. Check the src in the CATEGORIES list in index.html.</div>`;
-  return `<iframe src="https://www.youtube-nocookie.com/embed/${id}" title="${v.title}" loading="lazy" referrerpolicy="strict-origin-when-cross-origin" allow="accelerometer; encrypted-media; picture-in-picture; fullscreen" allowfullscreen></iframe>`;
+function escapeHtml(value){
+  return String(value).replace(/[&<>"']/g,ch=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[ch]));
 }
 
-/* Home: tabs + featured video */
+function videoCard(v,category=""){
+  const title=escapeHtml(v.title), id=youtubeVideoId(v.src);
+  if(!id){
+    const message=v.src?"That doesn't look like a YouTube link.":"Paste a YouTube embed link or iframe code into this video's src.";
+    return `<article class="card dark"><div class="empty"><b>${title}</b>${message}</div></article>`;
+  }
+  return `<article class="video-card ${category?"card dark":""}" data-id="${id}" data-title="${title}">
+    <div class="video">
+      <img class="video-thumb" src="https://img.youtube.com/vi/${id}/maxresdefault.jpg" alt="" loading="lazy">
+      <div class="preview-layer"></div>
+      <button class="video-open" type="button" aria-label="Play ${title} in a larger player"><span class="play-icon" aria-hidden="true">&#9654;</span></button>
+      <button class="mute-btn" type="button" hidden>Unmute</button>
+    </div>
+    <div class="${category?"meta":""}"><h3>${title}</h3>${category?`<span>${escapeHtml(category)}</span>`:""}<p class="video-status" aria-live="polite"></p></div>
+  </article>`;
+}
+
+const reducedMotion=window.matchMedia("(prefers-reduced-motion: reduce)");
+const lightbox=$("lightbox");
+let apiPromise, activePreview=null, returningFromLightbox=false, lightboxTrigger=null;
+
+function loadYouTubeApi(){
+  if(window.YT && window.YT.Player) return Promise.resolve();
+  if(!apiPromise){
+    apiPromise=new Promise((resolve,reject)=>{
+      window.onYouTubeIframeAPIReady=resolve;
+      const script=document.createElement("script");
+      script.src="https://www.youtube.com/iframe_api";
+      script.onerror=()=>{script.remove();apiPromise=null;reject(new Error("YouTube player API failed to load"));};
+      document.head.appendChild(script);
+    });
+  }
+  return apiPromise;
+}
+
+function stopPreview(){
+  if(!activePreview) return;
+  const preview=activePreview;
+  activePreview=null;
+  if(preview.player) preview.player.destroy();
+  preview.card.classList.remove("playing");
+  preview.card.querySelector(".preview-layer").replaceChildren();
+  preview.card.querySelector(".mute-btn").hidden=true;
+}
+
+async function startPreview(card){
+  if(reducedMotion.matches || lightbox.open || activePreview?.card===card) return;
+  stopPreview();
+  const preview={card,player:null,muted:true};
+  activePreview=preview;
+  const mute=card.querySelector(".mute-btn");
+  mute.hidden=false;
+  mute.textContent="Unmute";
+  mute.setAttribute("aria-label",`Unmute preview of ${card.dataset.title}`);
+  card.querySelector(".video-status").textContent="";
+  try{
+    await loadYouTubeApi();
+    if(activePreview!==preview || !card.isConnected) return;
+    const mount=document.createElement("div");
+    card.querySelector(".preview-layer").replaceChildren(mount);
+    const params={autoplay:1,controls:0,mute:1,loop:1,playlist:card.dataset.id,rel:0,modestbranding:1,iv_load_policy:3,playsinline:1};
+    if(location.protocol==="http:" || location.protocol==="https:") params.origin=location.origin;
+    preview.player=new YT.Player(mount,{
+      host:"https://www.youtube-nocookie.com",
+      videoId:card.dataset.id,
+      playerVars:params,
+      events:{
+        onReady:event=>{
+          if(activePreview!==preview) return;
+          const iframe=event.target.getIframe();
+          iframe.title=`Preview of ${card.dataset.title}`;
+          iframe.tabIndex=-1;
+          iframe.setAttribute("aria-hidden","true");
+          iframe.referrerPolicy="strict-origin-when-cross-origin";
+          if(preview.muted) event.target.mute(); else event.target.unMute();
+          event.target.playVideo();
+        },
+        onStateChange:event=>{
+          if(activePreview===preview && event.data===YT.PlayerState.PLAYING) card.classList.add("playing");
+        },
+        onError:()=>previewFailed(preview),
+        onAutoplayBlocked:()=>previewFailed(preview)
+      }
+    });
+  }catch(error){
+    console.error("Could not start YouTube preview:",error);
+    previewFailed(preview);
+  }
+}
+
+function previewFailed(preview){
+  if(activePreview!==preview) return;
+  stopPreview();
+  preview.card.querySelector(".video-status").textContent="Preview unavailable. Open the video to watch.";
+}
+
+function openLightbox(card){
+  stopPreview();
+  returningFromLightbox=true;
+  lightboxTrigger=card.querySelector(".video-open");
+  const params=new URLSearchParams({autoplay:"1",controls:"1",rel:"0",modestbranding:"1",iv_load_policy:"3",playsinline:"1"});
+  const iframe=document.createElement("iframe");
+  iframe.src=`https://www.youtube-nocookie.com/embed/${card.dataset.id}?${params}`;
+  iframe.title=card.dataset.title;
+  iframe.allow="autoplay; encrypted-media; picture-in-picture; fullscreen";
+  iframe.allowFullscreen=true;
+  iframe.referrerPolicy="strict-origin-when-cross-origin";
+  $("lightbox-video").replaceChildren(iframe);
+  lightbox.setAttribute("aria-label",`Video: ${card.dataset.title}`);
+  lightbox.showModal();
+  lightbox.querySelector(".lightbox-close").focus();
+}
+
+lightbox.querySelector(".lightbox-close").addEventListener("click",()=>lightbox.close());
+lightbox.addEventListener("keydown",event=>{
+  if(event.key==="Escape"){event.preventDefault();lightbox.close();}
+});
+lightbox.addEventListener("click",event=>{if(event.target===lightbox) lightbox.close();});
+lightbox.addEventListener("close",()=>{
+  $("lightbox-video").replaceChildren();
+  if(lightboxTrigger?.isConnected) lightboxTrigger.focus();
+  lightboxTrigger=null;
+  returningFromLightbox=false;
+});
+
+function bindVideos(container){
+  container.querySelectorAll(".video-card").forEach(card=>{
+    const image=card.querySelector(".video-thumb");
+    const fallback=()=>{
+      if(image.dataset.fallback) return;
+      image.dataset.fallback="true";
+      image.src=`https://img.youtube.com/vi/${card.dataset.id}/hqdefault.jpg`;
+    };
+    image.addEventListener("load",()=>{if(image.naturalWidth<=120) fallback();});
+    image.addEventListener("error",()=>{
+      if(!image.dataset.fallback) fallback();
+      else card.querySelector(".video-status").textContent="Thumbnail unavailable. Open the video to watch.";
+    });
+    if(image.complete && image.naturalWidth<=120) fallback();
+    card.addEventListener("pointerenter",event=>{if(event.pointerType==="mouse") startPreview(card);});
+    card.addEventListener("pointerleave",event=>{if(event.pointerType==="mouse" && activePreview?.card===card) stopPreview();});
+    card.addEventListener("focusin",event=>{
+      if(!returningFromLightbox && event.target.matches(".video-open:focus-visible")) startPreview(card);
+    });
+    card.addEventListener("focusout",event=>{
+      if(!card.contains(event.relatedTarget) && activePreview?.card===card) stopPreview();
+    });
+    card.querySelector(".video-open").addEventListener("click",()=>openLightbox(card));
+    card.querySelector(".mute-btn").addEventListener("click",()=>{
+      if(activePreview?.card!==card) return;
+      const preview=activePreview;
+      preview.muted=!preview.muted;
+      if(preview.player && typeof preview.player.mute==="function"){
+        if(preview.muted) preview.player.mute(); else preview.player.unMute();
+      }
+      const button=card.querySelector(".mute-btn");
+      button.textContent=preview.muted?"Unmute":"Mute";
+      button.setAttribute("aria-label",`${preview.muted?"Unmute":"Mute"} preview of ${card.dataset.title}`);
+    });
+  });
+}
+
+reducedMotion.addEventListener("change",()=>{if(reducedMotion.matches) stopPreview();});
+document.addEventListener("visibilitychange",()=>{if(document.hidden) stopPreview();});
+
+/* Home: tabs + featured videos */
 function showTab(k){
+  stopPreview();
   document.querySelectorAll(".tab").forEach(t=>t.setAttribute("aria-selected",t.dataset.k===k));
-  const c=CATEGORIES[k], v=c.videos[0];
+  const c=CATEGORIES[k];
   $("panel").innerHTML=`
-    <div class="video">${videoEl(v)}</div>
+    <div class="featured-grid">${c.videos.slice(0,4).map(v=>videoCard(v)).join("")}</div>
     <div class="panel-foot">
-      <div><h2>${c.label}</h2><p>${v.title}</p><p>${c.blurb}</p></div>
+      <div><h2>${c.label}</h2><p>${c.blurb}</p></div>
       <a class="btn" href="#vault-${k}">More like this</a>
     </div>`;
+  bindVideos($("panel"));
 }
 $("tabs").innerHTML=keys.map(k=>`<button class="tab" role="tab" data-k="${k}">${CATEGORIES[k].label}</button>`).join("");
 $("tabs").addEventListener("click",e=>{const b=e.target.closest(".tab"); if(b) showTab(b.dataset.k);});
 
 /* Vault: filter chips + grid */
 function showVault(filter){
+  stopPreview();
   $("chips").innerHTML=["all",...keys].map(k=>
     `<button class="chip" data-k="${k}" aria-pressed="${k===filter}">${k==="all"?"All":CATEGORIES[k].label}</button>`).join("");
   const list=keys.filter(k=>filter==="all"||k===filter)
     .flatMap(k=>CATEGORIES[k].videos.map(v=>({...v,cat:CATEGORIES[k].label})));
-  $("grid").innerHTML=list.map(v=>`
-    <article class="card dark"><div class="video">${videoEl(v)}</div>
-    <div class="meta"><h3>${v.title}</h3><span>${v.cat}</span></div></article>`).join("");
+  $("grid").innerHTML=list.map(v=>videoCard(v,v.cat)).join("");
+  bindVideos($("grid"));
 }
 $("chips").addEventListener("click",e=>{const b=e.target.closest(".chip"); if(b) location.hash = b.dataset.k==="all" ? "vault" : "vault-"+b.dataset.k;});
 
 /* Simple hash routing: #  |  #vault  |  #vault-golf  |  #about */
 function route(){
+  stopPreview();
   const h=location.hash.slice(1);
   const inVault=h.startsWith("vault");
   $("home").hidden=inVault; $("vault").hidden=!inVault;
